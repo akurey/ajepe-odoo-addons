@@ -64,8 +64,9 @@ class APIController(http.Controller):
         try:
             ioc_name = model
             model = request.env[self._model].search([("model", "=", model)], limit=1)
+            _logger.debug(model)
             if model:
-                domain, fields, offset, limit, order = extract_arguments(payload)
+                domain, fields, offset, limit, order, date_from, date_from, employee_id = extract_arguments(payload)
                 data = (
                     request.env[model.model]
                     .search_read(
@@ -76,6 +77,7 @@ class APIController(http.Controller):
                         order=order,
                     )
                 )
+                _logger.debug(data)
                 if id:
                     domain = [("id", "=", int(id))]
                     data = (
@@ -166,7 +168,7 @@ class APIController(http.Controller):
                 "invalid object id", "invalid literal %s for id with base " % id
             )
         _model = (
-            request.env[self._model].sudo().search([("model", "=", model)], limit=1)
+            request.env[self._model].search([("model", "=", model)], limit=1)
         )
         if not _model:
             return invalid_response(
@@ -175,7 +177,7 @@ class APIController(http.Controller):
                 404,
             )
         try:
-            request.env[_model.model].sudo().browse(_id).write(payload)
+            request.env[_model.model].browse(_id).write(payload)
         except Exception as e:
             request.env.cr.rollback()
             return invalid_response("exception", e.name)
@@ -195,7 +197,7 @@ class APIController(http.Controller):
                 "invalid object id", "invalid literal %s for id with base " % id
             )
         try:
-            record = request.env[model].sudo().search([("id", "=", _id)])
+            record = request.env[model].search([("id", "=", _id)])
             if record:
                 record.unlink()
             else:
@@ -214,20 +216,28 @@ class APIController(http.Controller):
     @http.route(_routes, type="http", auth="none", methods=["PATCH"], csrf=False)
     def patch(self, model=None, id=None, action=None, **payload):
         """."""
+        if False:
+            record = request.env[model].new
+        else:
+            try:
+                _id = int(id)
+            except Exception as e:
+                return invalid_response(
+                    "invalid object id", "invalid literal %s for id with base " % id
+                )
+            record = request.env[model].search([("id", "=", _id)])
+        
         try:
-            _id = int(id)
-        except Exception as e:
-            return invalid_response(
-                "invalid object id", "invalid literal %s for id with base " % id
-            )
-        try:
-            record = request.env[model].sudo().search([("id", "=", _id)])
+            domain, fields, offset, limit, order, date_from, date_from, employee_id = extract_arguments(payload)
             _callable = action in [
                 method for method in dir(record) if callable(getattr(record, method))
             ]
             if record and _callable:
                 # action is a dynamic variable.
-                getattr(record, action)()
+                result = getattr(record, action)(**payload)
+
+                if result:
+                    return "{ %s }" % (result)
             else:
                 return invalid_response(
                     "missing_record",

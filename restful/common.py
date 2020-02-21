@@ -1,5 +1,5 @@
 import logging
-import datetime
+from datetime import datetime, date
 import json
 import ast
 
@@ -58,4 +58,13 @@ def extract_arguments(payloads, offset=0, limit=0, order=None):
         limit = int(payloads.get("limit"))
     if payloads.get("order"):
         order = payloads.get("order")
-    return [domain, fields, offset, limit, order]
+    if payloads.get("date_from"):
+        date_from = datetime.strptime(payloads.get("date_from"), '%Y/%m/%dT%H:%M:%S-06:00')
+        payloads["date_from"] = date_from
+    if payloads.get("date_to"):
+        date_to = datetime.strptime(payloads.get("date_to"), "%Y/%m/%dT%H:%M:%S-06:00")
+        payloads["date_to"] = date_to
+    if payloads.get("employee_id"):
+        employee_id = int(payloads.get("employee_id"))
+        payloads["employee_id"] = employee_id
+    return [domain, fields, offset, limit, order, date_from, date_to, employee_id]
